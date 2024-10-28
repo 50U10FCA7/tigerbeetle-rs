@@ -91,6 +91,7 @@ fn main() {
         .arg("c_client")
         .args(release.then_some("-Drelease"))
         .arg(format!("-Dtarget={target_lib_subdir}"))
+        .arg("-Dgit-commit")
         .env("TIGERBEETLE_RELEASE", TIGERBEETLE_RELEASE)
         .current_dir(&tigerbeetle_root)
         .status()
