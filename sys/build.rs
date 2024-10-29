@@ -91,7 +91,8 @@ fn main() {
         .arg("c_client")
         .args(release.then_some("-Drelease"))
         .arg(format!("-Dtarget={target_lib_subdir}"))
-        .arg("-Dgit-commit")
+        // TODO: Remove once fixed in upstream.
+        .arg("-Dgit-commit=73bbc1a32ba2513e369764680350c099fe302285")
         .env("TIGERBEETLE_RELEASE", TIGERBEETLE_RELEASE)
         .current_dir(&tigerbeetle_root)
         .status()
@@ -110,12 +111,8 @@ fn main() {
 
         wrapper = lib_dir.join("include/wrapper.h");
         let generated_header = lib_dir.join("include/tb_client.h");
-        assert!(
-            std::fs::read_to_string(&generated_header).expect("reading generated `tb_client.h`")
-                == std::fs::read_to_string("src/tb_client.h")
-                    .expect("reading pregenerated `tb_client.h`"),
-            "generated and pregenerated `tb_client.h` headers must be equal, generated at: {generated_header:?}",
-        );
+        assert_eq!(std::fs::read_to_string(&generated_header).expect("reading generated `tb_client.h`"), std::fs::read_to_string("src/tb_client.h")
+            .expect("reading pregenerated `tb_client.h`"), "generated and pregenerated `tb_client.h` headers must be equal, generated at: {generated_header:?}");
         std::fs::copy("src/wrapper.h", &wrapper).expect("copying wrapper.h");
     };
 
@@ -394,26 +391,6 @@ struct TigerbeetleCallbacks {
 }
 
 impl bindgen::callbacks::ParseCallbacks for TigerbeetleCallbacks {
-    fn add_derives(&self, info: &bindgen::callbacks::DeriveInfo<'_>) -> Vec<String> {
-        let mut out = Vec::new();
-        if let bindgen::callbacks::DeriveInfo {
-            kind: bindgen::callbacks::TypeKind::Struct,
-            name:
-                "tb_account_t"
-                | "tb_account_balance_t"
-                | "tb_account_filter_t"
-                | "tb_create_accounts_result_t"
-                | "tb_transfer_t"
-                | "tb_create_transfers_result_t",
-            ..
-        } = info
-        {
-            out.extend(["::bytemuck::Pod".into(), "::bytemuck::Zeroable".into()]);
-        };
-        out.append(&mut bindgen::CargoCallbacks.add_derives(info));
-        out
-    }
-
     fn will_parse_macro(&self, name: &str) -> bindgen::callbacks::MacroParsingBehavior {
         bindgen::CargoCallbacks.will_parse_macro(name)
     }
@@ -486,6 +463,26 @@ impl bindgen::callbacks::ParseCallbacks for TigerbeetleCallbacks {
         derive_trait: bindgen::callbacks::DeriveTrait,
     ) -> Option<bindgen::callbacks::ImplementsTrait> {
         bindgen::CargoCallbacks.blocklisted_type_implements_trait(name, derive_trait)
+    }
+
+    fn add_derives(&self, info: &bindgen::callbacks::DeriveInfo<'_>) -> Vec<String> {
+        let mut out = Vec::new();
+        if let bindgen::callbacks::DeriveInfo {
+            kind: bindgen::callbacks::TypeKind::Struct,
+            name:
+                "tb_account_t"
+                | "tb_account_balance_t"
+                | "tb_account_filter_t"
+                | "tb_create_accounts_result_t"
+                | "tb_transfer_t"
+                | "tb_create_transfers_result_t",
+            ..
+        } = info
+        {
+            out.extend(["::bytemuck::Pod".into(), "::bytemuck::Zeroable".into()]);
+        };
+        out.append(&mut bindgen::CargoCallbacks.add_derives(info));
+        out
     }
 
     fn process_comment(&self, comment: &str) -> Option<String> {
